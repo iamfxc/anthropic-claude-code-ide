@@ -1,46 +1,120 @@
-name: Deploy to GitHub Pages
+name: Deploy site preview
+
+# Each branch publishes its own site to /<slug>/ on the `gh-pages` branch.
+# A landing page at the root lists every preview so owners can be linked
+# directly. Slugs and labels are configurable in .github/site-config.json.
 
 on:
   push:
     branches:
       - main
-      - claude/vape-shop-gravesend-site-xmxTw
+      - 'claude/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
+# Don't let two pushes on the same branch race; do let different branches
+# deploy in parallel (each writes to its own subfolder).
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Resolve site slug, label and build kind
+        id: site
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          CONFIG=.github/site-config.json
+          slug=""
+          label=""
+          if [ -f "$CONFIG" ]; then
+            slug=$(jq -r --arg b "$BRANCH" '.branches[$b].slug // ""' "$CONFIG")
+            label=$(jq -r --arg b "$BRANCH" '.branches[$b].label // ""' "$CONFIG")
+          fi
+          if [ -z "$slug" ]; then
+            # Fall back: strip "claude/" prefix and trailing 6-char random token.
+            slug=$(echo "$BRANCH" | sed 's|^claude/||' | sed -E 's/-[A-Za-z0-9]{6}$//' | sed 's|/|-|g')
+          fi
+          if [ -z "$label" ]; then
+            label=$(echo "$slug" | sed 's/-/ /g')
+          fi
+
+          echo "slug=$slug"   >> "$GITHUB_OUTPUT"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+          if [ -f package.json ]; then
+            echo "kind=node" >> "$GITHUB_OUTPUT"
+          else
+            echo "kind=static" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node (Vite build)
+        if: steps.site.outputs.kind == 'node'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run build
-        env:
-          # Adjust if you change the repository name or use a custom domain.
-          VITE_BASE: /anthropic-claude-code-ide/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Build site into _publish/
+        env:
+          VITE_BASE: /anthropic-claude-code-ide/${{ steps.site.outputs.slug }}/
+        run: |
+          set -e
+          rm -rf _publish && mkdir _publish
+          if [ "${{ steps.site.outputs.kind }}" = "node" ]; then
+            npm ci
+            npm run build
+            cp -R dist/. _publish/
+          else
+            # Static site (e.g. ZAM CALL on main): copy the standard files.
+            shopt -s nullglob
+            for entry in index.html script.js styles.css favicon.svg favicon.ico assets public; do
+              [ -e "$entry" ] && cp -R "$entry" _publish/
+            done
+          fi
+
+      - name: Publish to gh-pages/${{ steps.site.outputs.slug }}/
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_publish
+          destination_dir: ${{ steps.site.outputs.slug }}
+          keep_files: true
+          publish_branch: gh-pages
+          commit_message: "deploy(${{ steps.site.outputs.slug }}): from ${{ github.sha }}"
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Refresh landing index on gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          # Clone gh-pages (now contains our new subfolder), regenerate root
+          # index.html listing every published site, then push.
+          rm -rf gh-pages-checkout
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" \
+            gh-pages-checkout
+
+          node .github/scripts/build-landing.mjs gh-pages-checkout .github/site-config.json
+
+          cd gh-pages-checkout
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "Landing page unchanged — skipping push."
+          else
+            git commit -m "landing: refresh index"
+            git push
+          fi

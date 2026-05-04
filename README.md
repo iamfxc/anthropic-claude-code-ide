@@ -49,24 +49,48 @@ npm run preview    # serves the production build locally
 
 ## Deploy to GitHub Pages
 
-This repo includes a workflow at `.github/workflows/deploy.yml` that builds
-on every push to `main` and publishes the `dist` folder.
+This repo hosts **multiple site previews** (one per branch) on a shared
+`gh-pages` branch. Each branch is published to its own subfolder so different
+client previews can co-exist.
 
-1. In GitHub → **Settings → Pages**, set **Source** to **GitHub Actions**.
-2. Push to `main`. The workflow will build and deploy.
-3. The site will be available at
-   `https://<your-username>.github.io/anthropic-claude-code-ide/`.
+The workflow at `.github/workflows/deploy.yml` runs on every push to `main`
+or any `claude/**` branch. It:
 
-If you change the repo name or use a custom domain, update `VITE_BASE` in
-`vite.config.js` (and in the workflow env). For a root-domain deploy, set it
-to `/`.
+1. Reads `.github/site-config.json` to find the slug + label for the current branch.
+2. Builds the site (Vite if `package.json` exists, otherwise copies the static
+   `index.html` / `script.js` / `styles.css`).
+3. Publishes to `gh-pages/<slug>/` with `keep_files: true`, so other previews
+   on `gh-pages` are preserved.
+4. Regenerates the landing page at `gh-pages/index.html` listing every preview.
 
-You can also deploy manually from your machine:
+### One-time GitHub setup
 
-```bash
-npm run build
-npx gh-pages -d dist
-```
+1. Push this branch — the first run creates the `gh-pages` branch automatically.
+2. **Settings → Pages → Source:** *Deploy from a branch* → **Branch:** `gh-pages`
+   → **Folder:** `/ (root)` → **Save**.
+3. (Optional) **Settings → Environments → github-pages** is no longer required;
+   you can remove the branch protection rule you added earlier.
+
+### Live URLs
+
+- Landing page (auto-generated): `https://iamfxc.github.io/anthropic-claude-code-ide/`
+- ZAM CALL phone store (`main`): `…/zam-call-phone-store/`
+- Vape Shop Gravesend (this branch): `…/vape-shop-gravesend/`
+
+### Adding a new site preview
+
+1. Create a new branch (any `claude/<name>` works) and put the site in the repo root.
+2. Optionally add an entry to `.github/site-config.json` to give it a nicer slug
+   and display label:
+   ```json
+   {
+     "branches": {
+       "claude/my-new-site": { "slug": "my-new-site", "label": "My New Site" }
+     }
+   }
+   ```
+3. Push. The workflow builds and publishes to `…/<slug>/`, and the landing page
+   updates automatically.
 
 ## Where to wire real integrations later
 

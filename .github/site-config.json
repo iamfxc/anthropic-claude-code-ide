@@ -1,0 +1,13 @@
+{
+  "_comment": "Per-branch overrides for site preview slug and label. If a branch is not listed here, the workflow derives the slug from the branch name. Edit this file to give a branch a nicer URL or display name.",
+  "branches": {
+    "main": {
+      "slug": "zam-call-phone-store",
+      "label": "ZAM CALL phone store"
+    },
+    "claude/vape-shop-gravesend-site-xmxTw": {
+      "slug": "vape-shop-gravesend",
+      "label": "Vape Shop Gravesend"
+    }
+  }
+}
