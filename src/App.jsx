@@ -2,12 +2,13 @@ import { useState } from 'react'
 import AgeGate from './components/AgeGate.jsx'
 import Header from './components/Header.jsx'
 import Hero from './components/Hero.jsx'
-import DealsCarousel from './components/DealsCarousel.jsx'
+import BestSellersCarousel from './components/BestSellersCarousel.jsx'
+import Differentiators from './components/Differentiators.jsx'
 import CategoryHub from './components/CategoryHub.jsx'
 import ProductGrid from './components/ProductGrid.jsx'
 import FlavourFinder from './components/FlavourFinder.jsx'
 import AIAssistant from './components/AIAssistant.jsx'
-import ScalingSection from './components/ScalingSection.jsx'
+import InventoryStudio from './components/InventoryStudio.jsx'
 import LocalTrust from './components/LocalTrust.jsx'
 import FAQ from './components/FAQ.jsx'
 import PhasePlan from './components/PhasePlan.jsx'
@@ -40,7 +41,8 @@ export default function App() {
         <Header />
         <main id="top" className="flex-1">
           <Hero />
-          <DealsCarousel onAskAssistant={askAssistantAbout} />
+          <BestSellersCarousel onAskAssistant={askAssistantAbout} />
+          <Differentiators />
           <CategoryHub onPickCategory={onPickCategory} />
           <ProductGrid
             categoryFilter={categoryFilter}
@@ -49,7 +51,7 @@ export default function App() {
           />
           <FlavourFinder onAskAssistant={askAssistantAbout} />
           <AIAssistant />
-          <ScalingSection />
+          <InventoryStudio />
           <LocalTrust />
           <FAQ />
           <PhasePlan />
