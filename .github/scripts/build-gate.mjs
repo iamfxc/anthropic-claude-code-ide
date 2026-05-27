@@ -1,0 +1,110 @@
+// Generates a passcode "gate" page for a site preview.
+// The real site is deployed under ./app/; this gate sits at the folder root
+// and forwards to ./app/ once the correct access code is entered.
+//
+// Security note: this is casual-snooping protection only, NOT real auth.
+// The page embeds a SHA-256 hash of the code (not the code itself), so the
+// plain code isn't visible in view-source, but a determined visitor could
+// still reach ./app/ directly. Don't rely on this for anything sensitive.
+//
+// Usage: node build-gate.mjs <outDir> <slug> <label> <sha256hex>
+
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const [outDir, slug, label, hash] = process.argv.slice(2)
+if (!outDir || !slug || !hash) {
+  console.error('Usage: build-gate.mjs <outDir> <slug> <label> <sha256hex>')
+  process.exit(1)
+}
+
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+  )
+
+const safeLabel = esc(label || slug)
+
+const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>${safeLabel} · Private preview</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #07090d; color: #e2e8f0;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(47,150,255,.12), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 20%, rgba(17,195,154,.10), transparent 60%); }
+  .card { width: 100%; max-width: 420px; padding: 32px 28px;
+    border: 1px solid rgba(255,255,255,.08); border-radius: 20px;
+    background: rgba(17,21,28,.7); backdrop-filter: blur(16px);
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.7); }
+  .brand { display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: #5fb7ff; }
+  .dot { width: 7px; height: 7px; border-radius: 999px;
+    background: linear-gradient(90deg,#2f96ff,#11c39a); }
+  h1 { margin: 14px 0 6px; font-size: 24px; color: #fff; letter-spacing: -.01em; }
+  p.lede { margin: 0 0 22px; color: #94a3b8; font-size: 14px; line-height: 1.5; }
+  form { display: flex; flex-direction: column; gap: 10px; }
+  input { width: 100%; padding: 13px 15px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.12); background: rgba(7,9,13,.7);
+    color: #fff; font-size: 15px; }
+  input:focus { outline: none; border-color: #5fb7ff; }
+  button { padding: 13px 15px; border: 0; border-radius: 999px; cursor: pointer;
+    font-size: 15px; font-weight: 600; color: #07090d;
+    background: linear-gradient(90deg,#2f96ff,#11c39a); transition: transform .15s; }
+  button:hover { transform: translateY(-1px); }
+  .err { margin: 12px 0 0; color: #fca5a5; font-size: 13px; }
+  footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06);
+    color: #475569; font-size: 11px; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <span class="brand"><span class="dot"></span>Studio Previews</span>
+    <h1>${safeLabel}</h1>
+    <p class="lede">This is a private preview prepared for client review. Enter the access code provided to continue.</p>
+    <form id="gate">
+      <input id="code" type="password" inputmode="text" autocomplete="off"
+             autocapitalize="off" spellcheck="false" placeholder="Access code" aria-label="Access code" />
+      <button type="submit">Unlock preview</button>
+    </form>
+    <p id="err" class="err" hidden>That code didn't match. Please try again.</p>
+    <footer>Protected preview · please don't share this link publicly.</footer>
+  </main>
+  <script>
+    var EXPECTED = "${hash}";
+    var KEY = "studio-preview-unlocked:${slug}";
+    function toHex(buf){return Array.prototype.map.call(new Uint8Array(buf),function(b){return b.toString(16).padStart(2,"0")}).join("")}
+    async function sha256(text){var d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));return toHex(d)}
+    try { if (sessionStorage.getItem(KEY) === "1") location.replace("./app/"); } catch (e) {}
+    document.getElementById("gate").addEventListener("submit", async function(e){
+      e.preventDefault();
+      var err = document.getElementById("err");
+      err.hidden = true;
+      var value = document.getElementById("code").value.trim();
+      try {
+        var got = await sha256(value);
+        if (got === EXPECTED) {
+          try { sessionStorage.setItem(KEY, "1"); } catch (e) {}
+          location.replace("./app/");
+        } else {
+          err.hidden = false;
+        }
+      } catch (e2) {
+        err.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>
+`
+
+writeFileSync(join(outDir, 'index.html'), html)
+console.log(`Wrote gate for "${slug}" (label: ${safeLabel}).`)
