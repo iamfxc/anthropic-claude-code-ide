@@ -1,0 +1,157 @@
+name: Deploy site preview
+
+# Each branch publishes its own site to /<slug>/ on the `gh-pages` branch.
+# A "Studio Previews" landing page at the root lists every preview.
+# Slugs, labels and per-preview passcodes live in .github/site-config.json.
+#
+# The site's URL base is derived from the repository name, so renaming the
+# repo automatically updates all asset paths on the next deploy — no code
+# change needed.
+#
+# When a branch has a `passcode` in site-config.json, the real site is nested
+# under /<slug>/app/ and a passcode gate is published at /<slug>/ (the client
+# URL). See .github/scripts/build-gate.mjs for the gate (casual protection
+# only — not real authentication).
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Don't let two pushes on the same branch race; do let different branches
+# deploy in parallel (each writes to its own subfolder).
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve site config
+        id: site
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          # Repo name without owner — always available, survives renames.
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          CONFIG=.github/site-config.json
+          slug="" ; label="" ; passcode=""
+          if [ -f "$CONFIG" ]; then
+            slug=$(jq -r --arg b "$BRANCH" '.branches[$b].slug // ""' "$CONFIG")
+            label=$(jq -r --arg b "$BRANCH" '.branches[$b].label // ""' "$CONFIG")
+            passcode=$(jq -r --arg b "$BRANCH" '.branches[$b].passcode // ""' "$CONFIG")
+          fi
+          if [ -z "$slug" ]; then
+            # Fall back: strip "claude/" prefix and trailing 6-char random token.
+            slug=$(echo "$BRANCH" | sed 's|^claude/||' | sed -E 's/-[A-Za-z0-9]{6}$//' | sed 's|/|-|g')
+          fi
+          [ -z "$label" ] && label=$(echo "$slug" | sed 's/-/ /g')
+
+          if [ -f package.json ]; then kind=node; else kind=static; fi
+
+          # Gated previews nest the real site under /app/.
+          if [ -n "$passcode" ]; then
+            base="/${REPO_NAME}/${slug}/app/"
+          else
+            base="/${REPO_NAME}/${slug}/"
+          fi
+
+          echo "slug=$slug"         >> "$GITHUB_OUTPUT"
+          echo "label=$label"       >> "$GITHUB_OUTPUT"
+          echo "kind=$kind"         >> "$GITHUB_OUTPUT"
+          echo "gated=$([ -n "$passcode" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          # VITE_BASE is consumed by the build step (vite.config.js reads it).
+          echo "VITE_BASE=$base"    >> "$GITHUB_ENV"
+          # Pass the passcode to later steps via env file (not an output, so it
+          # isn't echoed in logs).
+          echo "PREVIEW_PASSCODE=$passcode" >> "$GITHUB_ENV"
+
+          echo "Resolved: slug=$slug kind=$kind gated=$([ -n "$passcode" ] && echo yes || echo no) base=$base"
+
+      - name: Setup Node (Vite build)
+        if: steps.site.outputs.kind == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build site into _publish/
+        run: |
+          set -e
+          rm -rf _publish && mkdir _publish
+
+          # Gated sites live under _publish/app/; open sites at _publish/ root.
+          if [ -n "$PREVIEW_PASSCODE" ]; then
+            APPDIR=_publish/app
+          else
+            APPDIR=_publish
+          fi
+          mkdir -p "$APPDIR"
+
+          if [ "${{ steps.site.outputs.kind }}" = "node" ]; then
+            npm ci
+            npm run build
+            cp -R dist/. "$APPDIR"/
+          else
+            # Static site (e.g. ZAM CALL): copy standard files if present.
+            # Explicit `if` so a missing file can't fail the step under bash -e.
+            for entry in index.html script.js styles.css favicon.svg favicon.ico assets public; do
+              if [ -e "$entry" ]; then
+                cp -R "$entry" "$APPDIR"/
+              fi
+            done
+          fi
+
+          # Build the passcode gate at the folder root when configured.
+          if [ -n "$PREVIEW_PASSCODE" ]; then
+            HASH=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex"))' "$PREVIEW_PASSCODE")
+            node .github/scripts/build-gate.mjs _publish "${{ steps.site.outputs.slug }}" "${{ steps.site.outputs.label }}" "$HASH"
+            echo "Built passcode gate -> _publish/index.html (site under _publish/app/)."
+          fi
+
+      - name: Publish to gh-pages/${{ steps.site.outputs.slug }}/
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_publish
+          destination_dir: ${{ steps.site.outputs.slug }}
+          keep_files: true
+          publish_branch: gh-pages
+          commit_message: "deploy(${{ steps.site.outputs.slug }}): from ${{ github.sha }}"
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Refresh landing index on gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          # Clone gh-pages (now contains our new subfolder), regenerate the
+          # Studio Previews landing page, then push.
+          rm -rf gh-pages-checkout
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" \
+            gh-pages-checkout
+
+          node .github/scripts/build-landing.mjs gh-pages-checkout .github/site-config.json
+
+          cd gh-pages-checkout
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "Landing page unchanged — skipping push."
+          else
+            git commit -m "landing: refresh index"
+            git push
+          fi

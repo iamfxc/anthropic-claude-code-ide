@@ -1,0 +1,15 @@
+{
+  "_comment": "Per-branch preview settings. 'slug' is the URL folder, 'label' is the display name, 'passcode' (optional) turns on the access-code gate for that preview. Remove 'passcode' to make a preview open. These passcodes are casual-snooping protection only, not real security.",
+  "branches": {
+    "claude/generate-website-I4IWe": {
+      "slug": "zam-call-phone-store",
+      "label": "ZAM CALL phone store",
+      "passcode": "zamcall-preview"
+    },
+    "claude/vape-shop-gravesend-site-xmxTw": {
+      "slug": "vape-shop-gravesend",
+      "label": "Vape Shop Gravesend",
+      "passcode": "vapeshop-preview"
+    }
+  }
+}
