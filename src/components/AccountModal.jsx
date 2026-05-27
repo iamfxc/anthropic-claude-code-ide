@@ -21,19 +21,19 @@ export default function AccountModal() {
   return (
     <AnimatePresence>
       {accountOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setAccountOpen(false)}
-            className="fixed inset-0 z-[80] bg-graphite-950/75 backdrop-blur-sm"
-          />
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={() => setAccountOpen(false)}
+          className="fixed inset-0 z-[80] grid place-items-center p-4 bg-graphite-950/75 backdrop-blur-sm overflow-y-auto"
+        >
           <motion.div
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="fixed left-1/2 top-1/2 z-[81] w-[min(94vw,520px)] max-h-[88vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 glass-strong rounded-3xl"
-            role="dialog" aria-label="Customer account"
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-[520px] max-h-[88vh] overflow-y-auto glass-strong rounded-3xl my-auto"
+            role="dialog" aria-modal="true" aria-label="Customer account"
           >
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 p-4 border-b border-white/5 bg-graphite-800/80 backdrop-blur-xl rounded-t-3xl">
               <div className="flex items-center gap-2.5">
@@ -59,7 +59,7 @@ export default function AccountModal() {
               )}
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   )
