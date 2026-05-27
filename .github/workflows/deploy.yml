@@ -74,10 +74,13 @@ jobs:
             npm run build
             cp -R dist/. _publish/
           else
-            # Static site (e.g. ZAM CALL on main): copy the standard files.
-            shopt -s nullglob
+            # Static site (e.g. ZAM CALL): copy the standard files if present.
+            # Use an explicit `if` so a missing file never makes the loop exit
+            # non-zero under `bash -e`.
             for entry in index.html script.js styles.css favicon.svg favicon.ico assets public; do
-              [ -e "$entry" ] && cp -R "$entry" _publish/
+              if [ -e "$entry" ]; then
+                cp -R "$entry" _publish/
+              fi
             done
           fi
 
