@@ -39,9 +39,10 @@ jobs:
         id: site
         env:
           BRANCH: ${{ github.ref_name }}
-          REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -e
+          # Repo name without owner — always available, survives renames.
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
           CONFIG=.github/site-config.json
           slug="" ; label="" ; passcode=""
           if [ -f "$CONFIG" ]; then
