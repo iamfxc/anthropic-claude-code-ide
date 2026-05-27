@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Phone, MessageCircle, Menu, X, ShieldCheck } from 'lucide-react'
+import { Phone, MessageCircle, Menu, X, ShieldCheck, ShoppingBag, User } from 'lucide-react'
 import { business } from '../data/business.js'
+import { useStore } from '../store/StoreContext.jsx'
 
 const NAV = [
   { id: 'deals', label: 'Deals' },
   { id: 'products', label: 'Products' },
   { id: 'flavour-finder', label: 'Flavour Finder' },
+  { id: 'click-collect', label: 'Click & Collect' },
   { id: 'assistant', label: 'AI Assistant' },
   { id: 'visit', label: 'Visit Us' },
   { id: 'faq', label: 'FAQ' },
@@ -15,6 +17,7 @@ const NAV = [
 export default function Header() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const { basket, setBasketOpen, setAccountOpen, user } = useStore()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -65,23 +68,38 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-2">
-          <a href={business.whatsapp} target="_blank" rel="noreferrer" className="btn-ghost py-2.5">
-            <MessageCircle size={16} /> Message
-          </a>
-          <a href={business.phoneTel} className="btn-primary py-2.5">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAccountOpen(true)}
+            aria-label="Account"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+          >
+            <User size={17} />
+          </button>
+          <button
+            onClick={() => setBasketOpen(true)}
+            aria-label="Collection basket"
+            className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+          >
+            <ShoppingBag size={17} />
+            {basket.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-gradient-to-r from-electric-500 to-ember-500 px-1 text-[10px] font-bold text-graphite-950">
+                {basket.length}
+              </span>
+            )}
+          </button>
+          <a href={business.phoneTel} className="hidden md:inline-flex btn-primary py-2.5">
             <Phone size={16} /> Call Store
           </a>
+          <button
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="lg:hidden grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white"
+          >
+            {open ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
-
-        <button
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="lg:hidden grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white"
-        >
-          {open ? <X size={18} /> : <Menu size={18} />}
-        </button>
       </div>
 
       <AnimatePresence>

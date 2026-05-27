@@ -8,12 +8,17 @@ import CategoryHub from './components/CategoryHub.jsx'
 import ProductGrid from './components/ProductGrid.jsx'
 import FlavourFinder from './components/FlavourFinder.jsx'
 import AIAssistant from './components/AIAssistant.jsx'
+import ClickCollectPreview from './components/ClickCollectPreview.jsx'
 import InventoryStudio from './components/InventoryStudio.jsx'
 import LocalTrust from './components/LocalTrust.jsx'
 import FAQ from './components/FAQ.jsx'
 import PhasePlan from './components/PhasePlan.jsx'
 import Footer from './components/Footer.jsx'
 import FloatingAssistant from './components/FloatingAssistant.jsx'
+import { StoreProvider } from './store/StoreContext.jsx'
+import Toaster from './components/Toaster.jsx'
+import CollectionDrawer from './components/CollectionDrawer.jsx'
+import AccountModal from './components/AccountModal.jsx'
 
 export default function App() {
   // When the user filters from a category card we lift the category id here so
@@ -36,34 +41,40 @@ export default function App() {
   }
 
   return (
-    <AgeGate>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main id="top" className="flex-1">
-          <Hero />
-          <BestSellersCarousel onAskAssistant={askAssistantAbout} />
-          <Differentiators />
-          <CategoryHub onPickCategory={onPickCategory} />
-          <ProductGrid
-            categoryFilter={categoryFilter}
-            setCategoryFilter={setCategoryFilter}
-            onAskAssistant={askAssistantAbout}
+    <StoreProvider>
+      <AgeGate>
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main id="top" className="flex-1">
+            <Hero />
+            <BestSellersCarousel onAskAssistant={askAssistantAbout} />
+            <Differentiators />
+            <CategoryHub onPickCategory={onPickCategory} />
+            <ProductGrid
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+              onAskAssistant={askAssistantAbout}
+            />
+            <FlavourFinder onAskAssistant={askAssistantAbout} />
+            <ClickCollectPreview />
+            <AIAssistant />
+            <InventoryStudio />
+            <LocalTrust />
+            <FAQ />
+            <PhasePlan />
+          </main>
+          <Footer />
+          <FloatingAssistant
+            open={assistantOpen}
+            setOpen={setAssistantOpen}
+            seed={assistantSeed}
+            clearSeed={() => setAssistantSeed(null)}
           />
-          <FlavourFinder onAskAssistant={askAssistantAbout} />
-          <AIAssistant />
-          <InventoryStudio />
-          <LocalTrust />
-          <FAQ />
-          <PhasePlan />
-        </main>
-        <Footer />
-        <FloatingAssistant
-          open={assistantOpen}
-          setOpen={setAssistantOpen}
-          seed={assistantSeed}
-          clearSeed={() => setAssistantSeed(null)}
-        />
-      </div>
-    </AgeGate>
+          <CollectionDrawer />
+          <AccountModal />
+          <Toaster />
+        </div>
+      </AgeGate>
+    </StoreProvider>
   )
 }

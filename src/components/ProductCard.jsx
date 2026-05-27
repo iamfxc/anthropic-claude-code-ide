@@ -1,5 +1,6 @@
-import { Sparkles, Phone } from 'lucide-react'
+import { Sparkles, Phone, Clock3 } from 'lucide-react'
 import { business } from '../data/business.js'
+import { useStore } from '../store/StoreContext.jsx'
 
 const badgeStyles = {
   'Best Seller': 'bg-electric-500/15 text-electric-400 ring-electric-500/30',
@@ -11,6 +12,7 @@ const badgeStyles = {
 
 export default function ProductCard({ product, onAskAssistant, compact = false }) {
   const badgeClass = badgeStyles[product.badge] ?? 'bg-white/5 text-slate-300 ring-white/10'
+  const store = useStore()
 
   return (
     <article className={`glass rounded-2xl p-5 flex flex-col ${compact ? 'min-w-[270px] w-[270px]' : ''}`}>
@@ -47,19 +49,27 @@ export default function ProductCard({ product, onAskAssistant, compact = false }
 
       <p className="mt-3 text-[11px] text-slate-500">{product.availability}</p>
 
-      <div className="mt-auto pt-4 grid grid-cols-2 gap-2">
+      <div className="mt-auto pt-4 space-y-2">
         <button
-          onClick={() => onAskAssistant?.(product.title)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium border border-electric-500/30 bg-electric-500/10 text-electric-400 hover:bg-electric-500/15 transition-colors"
+          onClick={() => store?.addToBasket?.(product)}
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-xs font-semibold bg-gradient-to-r from-electric-500 to-ember-500 text-graphite-950 shadow-glow hover:-translate-y-0.5 transition-transform"
         >
-          <Sparkles size={13} /> Ask AI
+          <Clock3 size={13} /> Reserve · Collect in 1 hr
         </button>
-        <a
-          href={business.phoneTel}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
-        >
-          <Phone size={13} /> Call to check
-        </a>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => onAskAssistant?.(product.title)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium border border-electric-500/30 bg-electric-500/10 text-electric-400 hover:bg-electric-500/15 transition-colors"
+          >
+            <Sparkles size={13} /> Ask AI
+          </button>
+          <a
+            href={business.phoneTel}
+            className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+          >
+            <Phone size={13} /> Call
+          </a>
+        </div>
       </div>
     </article>
   )
